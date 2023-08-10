@@ -104,14 +104,7 @@ public class Robot extends TimedRobot {
   // Drive
   DifferentialDrive m_robotDrive = new DifferentialDrive(m_leftDrive, m_rightDrive);
 
-  // Blue Arm
-  final CANSparkMax m_blue1 = new CANSparkMax(5, MotorType.kBrushless);
-  final CANSparkMax m_blue2 = new CANSparkMax(6, MotorType.kBrushless);
-  MotorControllerGroup m_blueArm = new MotorControllerGroup(m_blue1, m_blue2);
-  RelativeEncoder blue_armEncoder;
-  double blueEncoder;
-  double blueMax = 78;
-  double blueMin = 0;
+  BlueArm blueArm = new BlueArm();
 
   // Red Arm
   final CANSparkMax m_redArm = new CANSparkMax(7, MotorType.kBrushless);
@@ -123,17 +116,14 @@ public class Robot extends TimedRobot {
   // Joysticks
   private final Joystick driveJoystick = new Joystick(0);
   private final Joystick wheelJoystick = new Joystick(1);
-  private final Joystick blueJoystick = new Joystick(4);
   private final Joystick redJoystick = new Joystick(5);
 
   final double driveDeadzone = 0.10;
   final double wheelDeadzone = 0.10;
-  final double blueDeadzone = 0.10;
   final double redDeadzone = 0.10;
 
   double desiredThrottle;
   double desiredWheel;
-  double desiredBlue;
   double desiredRed;
 
   // Pneumatics
@@ -178,14 +168,13 @@ public class Robot extends TimedRobot {
     // invert right drive
     m_rightDrive.setInverted(true);
 
-    // invert blue arm motors
-    m_blueArm.setInverted(true);
 
     // Encoder objects are created
     l_driveEncoder = m_frontLeft.getEncoder();
     r_driveEncoder = m_frontRight.getEncoder();
-    blue_armEncoder = m_blue1.getEncoder();
     red_armEncoder = m_redArm.getEncoder();
+
+    blueArm.robotInit();
 
     // AHRS gyro = new AHRS();
     // ahrs new AHRS();
@@ -219,13 +208,11 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("Pitch", ahrs.getPitch());
     SmartDashboard.putNumber("Roll", ahrs.getRoll());
 
-    SmartDashboard.putNumber("desiredBlue", desiredBlue);
     SmartDashboard.putNumber("desiredRed", desiredRed);
 
     // Puts incoder values in variables
     leftEncoder = l_driveEncoder.getPosition();
     rightEncoder = r_driveEncoder.getPosition();
-    blueEncoder = blue_armEncoder.getPosition();
     redEncoder = red_armEncoder.getPosition();
 
     red_armEncoder.setPosition(kDefaultPeriod);
@@ -233,7 +220,6 @@ public class Robot extends TimedRobot {
     // Displays encoder variable values on SmartDashboard
     SmartDashboard.putNumber("Left Drive Encoder", leftEncoder);
     SmartDashboard.putNumber("Right Drive Encoder", rightEncoder);
-    SmartDashboard.putNumber("Blue Arm Encoder", blueEncoder);
     SmartDashboard.putNumber("Red Arm Encoder", redEncoder);
     SmartDashboard.updateValues();
 
@@ -326,46 +312,12 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
     // Computes desired throttle speed
-    if (driveDeadzone <= Math.abs(driveJoystick.getRawAxis(1))) {
-      desiredThrottle = driveJoystick.getRawAxis(1);
-    } else {
-      desiredThrottle = 0.0;
-    }
-
+    desiredThrottle = Threshold.getValue(driveJoystick.getRawAxis(1), driveDeadzone);
     // Computes desired spin speed
-    if (wheelDeadzone <= Math.abs(wheelJoystick.getRawAxis(0))) {
-      desiredWheel = wheelJoystick.getRawAxis(0);
-    } else {
-      desiredWheel = 0.0;
-    }
+    desiredWheel = Threshold.getValue(wheelJoystick.getRawAxis(0), driveDeadzone);
 
-    /**
-     * Computes desired blue arm speed
-     * 
-     * desiredBlue equals the joystick value only if:
-     * it won't move the arm out of bounds and
-     * the value is bigger than the deadzone.
-     */
-    if (blueEncoder >= blueMax && redJoystick.getRawButton(3) == false) {
-      if (Math.signum(blueJoystick.getRawAxis(1)) == +1 || blueJoystick.getRawAxis(1) < blueDeadzone) {
-        desiredBlue = 0.0;
-      } else {
-        desiredBlue = blueJoystick.getRawAxis(1);
-      }
-    } else if (blueEncoder <= blueMin && redJoystick.getRawButton(3) == false) {
-      if ((Math.signum(blueJoystick.getRawAxis(1))) == -1 ||
-          blueJoystick.getRawAxis(1) < blueDeadzone) {
-        desiredBlue = 0.0;
-      } else {
-        desiredBlue = blueJoystick.getRawAxis(1);
-      }
-    } else {
-      if (blueJoystick.getRawAxis(1) < blueDeadzone) {
-        desiredBlue = 0.0;
-      } else {
-        desiredBlue = blueJoystick.getRawAxis(1);
-      }
-    }
+    // update blueArm for teleopPeriodic.
+    blueArm.teleopPeriodic();
 
     /*
      * Computes desired red arm speed
@@ -376,13 +328,13 @@ public class Robot extends TimedRobot {
      */
 
     if (redEncoder >= redMax && redJoystick.getRawButton(3) == false) {
-      if (Math.signum(redJoystick.getRawAxis(1)) == +1 || redJoystick.getRawAxis(1) < redDeadzone) {
+      if (redJoystick.getRawAxis(1) > 0 || redJoystick.getRawAxis(1) < redDeadzone) {
         desiredRed = 0.0;
       } else {
         desiredRed = redJoystick.getRawAxis(1);
       }
     } else if (redEncoder <= redMin && redJoystick.getRawButton(3) == false) {
-      if ((Math.signum(redJoystick.getRawAxis(1))) == -1 || redJoystick.getRawAxis(1) < redDeadzone) {
+      if (redJoystick.getRawAxis(1) < 0 || redJoystick.getRawAxis(1) < redDeadzone) {
         desiredRed = 0.0;
       } else {
         desiredRed = redJoystick.getRawAxis(1);
@@ -397,7 +349,6 @@ public class Robot extends TimedRobot {
 
     // Sets all motor speeds
     m_robotDrive.arcadeDrive(desiredThrottle, desiredWheel);
-    m_blueArm.set(desiredBlue);
     m_redArm.set(desiredRed);
 
     // Controls shifter solenoid with trigger
@@ -408,16 +359,16 @@ public class Robot extends TimedRobot {
 
     // Resets incoders when button 4 is pressed on the redJoystick
     if (redJoystick.getRawButtonPressed(5) == true) {
-      blue_armEncoder.setPosition(0);
       red_armEncoder.setPosition(0);
+      blueArm.resetEncoder();
     }
 
     // Reset Motor Inversion
     if (wheelJoystick.getRawButton(1) == true) {
       m_rightDrive.setInverted(true);
       m_leftDrive.setInverted(false);
-      m_blueArm.setInverted(true);
       m_redArm.setInverted(false);
+      blueArm.setInverted(true);
     }
   }
 
@@ -438,9 +389,7 @@ public class Robot extends TimedRobot {
     m_rightDrive.stopMotor();
 
     m_redArm.stopMotor();
-    m_blue1.stopMotor();
-    m_blue2.stopMotor();
-    m_blueArm.stopMotor();
+    blueArm.stopMotor();
   }
 
   /** This function is called once when test mode is enabled. */
