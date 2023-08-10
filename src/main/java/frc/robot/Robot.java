@@ -215,7 +215,7 @@ public class Robot extends TimedRobot {
     rightEncoder = r_driveEncoder.getPosition();
     redEncoder = red_armEncoder.getPosition();
 
-    red_armEncoder.setPosition(kDefaultPeriod);
+    //red_armEncoder.setPosition(kDefaultPeriod);
 
     // Displays encoder variable values on SmartDashboard
     SmartDashboard.putNumber("Left Drive Encoder", leftEncoder);
