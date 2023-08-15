@@ -21,7 +21,7 @@ package frc.robot;
     * test claw^
  * Arm
     * Test overide
-    * test zero^
+    * test zero
     * test limits
  * Auto balance etc
  * limelight
@@ -75,8 +75,6 @@ import edu.wpi.first.networktables.NetworkTableValue;
  * project.
  */
 public class Robot extends TimedRobot {
-  MovementBlocks myBlocks = new MovementBlocks();
-
   private static final String kDefaultAuto = "Default";
   private static final String kCustomAuto = "My Auto";
   private static final String kVision = "Vision";
@@ -158,6 +156,33 @@ public class Robot extends TimedRobot {
 
   boolean done;
 
+  public void turn2Angle(double desiredAngle, double closeEnough) {
+    double error = ahrs.getYaw() - desiredAngle;
+    double speed;
+    // Runs while
+    while (error >= closeEnough || error <= (closeEnough * -1)) {
+      error = ahrs.getYaw() - desiredAngle;
+      speed = error * 1 + 0.2;
+      m_robotDrive.arcadeDrive(0, speed);
+      m_robotDrive.arcadeDrive(0, 0);
+    }
+  }
+
+  public void driveStraight(double desiredAngle, double speed, double inches) {
+    double error = ahrs.getYaw() - desiredAngle;
+    double ratio = 1;
+    double desiredDistance = inches * ratio;
+    double rotation;
+    /*
+     * while () {
+     * error = ahrs.getYaw() - desiredAngle;
+     * rotation = error * 1 + 0.2;
+     * m_robotDrive.arcadeDrive(speed, rotation);
+     * m_robotDrive.tankDrive(speed, speed, false);
+     */
+
+  }
+
   /**
    * This function is run when the robot is first started up and should be used
    * for any
@@ -178,8 +203,9 @@ public class Robot extends TimedRobot {
     // invert right drive
     m_rightDrive.setInverted(true);
 
-    // invert blue arm motors
+    // invert arm motors
     m_blueArm.setInverted(true);
+    m_redArm.setInverted(true);
 
     // Encoder objects are created
     l_driveEncoder = m_frontLeft.getEncoder();
@@ -190,8 +216,6 @@ public class Robot extends TimedRobot {
     // AHRS gyro = new AHRS();
     // ahrs new AHRS();
     ahrs.zeroYaw();
-
-    myBlocks.printMessage("Salutations");
 
   }
 
@@ -227,8 +251,6 @@ public class Robot extends TimedRobot {
     rightEncoder = r_driveEncoder.getPosition();
     blueEncoder = blue_armEncoder.getPosition();
     redEncoder = red_armEncoder.getPosition();
-
-    red_armEncoder.setPosition(kDefaultPeriod);
 
     // Displays encoder variable values on SmartDashboard
     SmartDashboard.putNumber("Left Drive Encoder", leftEncoder);
@@ -346,26 +368,6 @@ public class Robot extends TimedRobot {
      * it won't move the arm out of bounds and
      * the value is bigger than the deadzone.
      */
-    if (blueEncoder >= blueMax && redJoystick.getRawButton(3) == false) {
-      if (Math.signum(blueJoystick.getRawAxis(1)) == +1 || blueJoystick.getRawAxis(1) < blueDeadzone) {
-        desiredBlue = 0.0;
-      } else {
-        desiredBlue = blueJoystick.getRawAxis(1);
-      }
-    } else if (blueEncoder <= blueMin && redJoystick.getRawButton(3) == false) {
-      if ((Math.signum(blueJoystick.getRawAxis(1))) == -1 ||
-          blueJoystick.getRawAxis(1) < blueDeadzone) {
-        desiredBlue = 0.0;
-      } else {
-        desiredBlue = blueJoystick.getRawAxis(1);
-      }
-    } else {
-      if (blueJoystick.getRawAxis(1) < blueDeadzone) {
-        desiredBlue = 0.0;
-      } else {
-        desiredBlue = blueJoystick.getRawAxis(1);
-      }
-    }
 
     /*
      * Computes desired red arm speed
@@ -373,27 +375,34 @@ public class Robot extends TimedRobot {
      * desiredRed equals the joystick value only if:
      * it won't move the arm out of bounds and
      * the value is bigger than the deadzone.
+     * 
      */
-
-    if (redEncoder >= redMax && redJoystick.getRawButton(3) == false) {
-      if (Math.signum(redJoystick.getRawAxis(1)) == +1 || redJoystick.getRawAxis(1) < redDeadzone) {
-        desiredRed = 0.0;
-      } else {
-        desiredRed = redJoystick.getRawAxis(1);
-      }
-    } else if (redEncoder <= redMin && redJoystick.getRawButton(3) == false) {
-      if ((Math.signum(redJoystick.getRawAxis(1))) == -1 || redJoystick.getRawAxis(1) < redDeadzone) {
-        desiredRed = 0.0;
-      } else {
-        desiredRed = redJoystick.getRawAxis(1);
-      }
+    if (redJoystick.getRawButton(3) == true) {
+      desiredRed = redJoystick.getRawAxis(0) * -0.5;
     } else {
-      if (redJoystick.getRawAxis(1) < redDeadzone) {
-        desiredRed = 0.0;
+      if (redEncoder >= redMax && Math.signum(desiredRed) == +1) {
+        desiredRed = 0;
+      } else if (redEncoder <= redMin && Math.signum(desiredRed) == -1) {
+        desiredRed = 0;
       } else {
-        desiredRed = redJoystick.getRawAxis(1);
+        desiredRed = redJoystick.getRawAxis(0) * -1;
       }
     }
+
+    // if (redJoystick.getRawButton(3) == true) {
+    // desiredRed = redJoystick.getRawAxis(0) * -0.5;
+    // } else {
+    // if (redEncoder >= redMax && Math.signum(redJoystick.getRawAxis(0)) == -1) {
+    // desiredRed = 0;
+    // } else if (redEncoder <= redMin && Math.signum(redJoystick.getRawAxis(0)) ==
+    // +1) {
+    // desiredRed = 0;
+    // } else {
+    // desiredRed = redJoystick.getRawAxis(0) * -1;
+    // }
+    // }
+
+    desiredBlue = blueJoystick.getRawAxis(0);
 
     // Sets all motor speeds
     m_robotDrive.arcadeDrive(desiredThrottle, desiredWheel);
@@ -411,13 +420,14 @@ public class Robot extends TimedRobot {
       blue_armEncoder.setPosition(0);
       red_armEncoder.setPosition(0);
     }
+    // Override
 
     // Reset Motor Inversion
     if (wheelJoystick.getRawButton(1) == true) {
       m_rightDrive.setInverted(true);
       m_leftDrive.setInverted(false);
       m_blueArm.setInverted(true);
-      m_redArm.setInverted(false);
+      m_redArm.setInverted(true);
     }
   }
 
